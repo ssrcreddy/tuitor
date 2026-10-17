@@ -29,6 +29,16 @@ All seed accounts use the password `password123`. They're listed at the top of [
 | Student | `alex@tuitor.test`, `sam@tuitor.test`                 |
 | Tutor   | `emma@tuitor.test` (approved), `omar@tuitor.test` (pending) |
 
+## Deployment
+
+- **App:** https://tuitor.vercel.app (Vercel project `tuitor`). Deploy with `npx vercel deploy --prod`.
+- **Database:** Supabase project `tuitor` (`lpfqlfophetfjyuigxij`, us-east-1).
+  - Apply new migrations in `supabase/migrations/` there, in order.
+  - The live database was loaded once with [`supabase/demo_seed.sql`](supabase/demo_seed.sql): the sample tutors with banned, random-password accounts, and no admin. Never run `seed.sql` against it.
+- **Vercel settings:** the deployment needs `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. The anon key holds the project's publishable key. The service-role key isn't used at runtime yet.
+- **Admins:** promote an existing account from the Supabase SQL editor:
+  `update profiles set role = 'admin' where id = (select id from auth.users where email = '…');`
+
 ## Scripts
 
 | Script              | What it does                         |
