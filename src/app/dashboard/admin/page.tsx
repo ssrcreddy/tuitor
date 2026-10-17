@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { SubmitButton } from "@/components/submit-button";
 import { requireProfile } from "@/lib/auth";
 import { formatMoney } from "@/lib/format";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Admin · Tuitor" };
 
@@ -12,8 +12,10 @@ async function reviewTutor(formData: FormData) {
   const userId = String(formData.get("user_id"));
   const decision = formData.get("decision") === "approve" ? "approved" : "rejected";
 
-  // Tutor status is not client-writable, so this goes through the service role.
-  await createAdminClient().from("tutor_profiles").update({ status: decision }).eq("user_id", userId);
+  // Tutor status is not client-writable; this function checks is_admin() itself.
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_set_tutor_status", { p_tutor_id: userId, p_status: decision });
+  if (error) throw new Error(error.message);
   revalidatePath("/dashboard/admin");
   revalidatePath("/tutors");
 }

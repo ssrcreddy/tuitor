@@ -3,7 +3,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(31);
 
 -- Seed ids
 \set alex   '''00000000-0000-0000-0000-00000000c001'''
@@ -125,6 +125,15 @@ select is((select count(*)::int from bookings where tutor_id = auth.uid() and st
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000db","role":"authenticated"}';
 select is((select count(*)::int from tutor_profiles where user_id = auth.uid()), 1,
           'a pending tutor can still see their own profile');
+
+-- Admin review of tutors
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000c001","role":"authenticated"}';
+select throws_ok($$ select admin_set_tutor_status('00000000-0000-0000-0000-0000000000db', 'approved') $$,
+                 '42501', 'Only admins can review tutors.', 'non-admins cannot approve tutors');
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000a001","role":"authenticated"}';
+select admin_set_tutor_status('00000000-0000-0000-0000-0000000000db', 'approved');
+select is((select status::text from tutor_profiles where user_id = '00000000-0000-0000-0000-0000000000db'), 'approved',
+          'admins can approve tutors');
 
 select * from finish();
 rollback;

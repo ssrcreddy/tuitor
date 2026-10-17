@@ -351,7 +351,10 @@ isOneToOne: true
             [_ in never]: never
           }
           Functions: {
-            "create_booking_hold":
+            "admin_set_tutor_status":
+{ Args: { "p_status": Database["public"]['Enums']["tutor_status"],"p_tutor_id": string }; Returns: undefined
+                           },
+"create_booking_hold":
 { Args: { "p_starts_at": string,"p_tutor_id": string,"p_type": Database["public"]['Enums']["booking_type"] }; Returns: {
               "created_at": string,
 "currency": string,
