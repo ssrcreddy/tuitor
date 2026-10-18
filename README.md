@@ -38,7 +38,9 @@ All seed accounts use the password `password123`. They're listed at the top of [
 - **Vercel settings:**
   - Public: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (the project's publishable key).
   - Secret, for payments: `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `CRON_SECRET`. Until all are set, booking is paused with a "temporarily unavailable" message and the admin page shows a warning. Redeploy after changing them.
-- **Stripe webhook:** add an endpoint for `https://tuitor.vercel.app/api/stripe/webhook` with the events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired` and `charge.refunded`, and enable "Listen to events on connected accounts" with `account.updated`. Its signing secret is `STRIPE_WEBHOOK_SECRET`.
+- **Stripe webhooks:** two endpoints, both pointing at `https://tuitor.vercel.app/api/stripe/webhook`:
+  - **Your account:** `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired` and `charge.refunded`. Its signing secret is `STRIPE_WEBHOOK_SECRET`.
+  - **Connected accounts:** `account.updated`. Its signing secret is `STRIPE_CONNECT_WEBHOOK_SECRET` (optional; the payouts page also refreshes a tutor's status from Stripe on each visit).
 - **Daily job:** Vercel Cron calls `/api/cron/daily` at 07:00 UTC ([`vercel.json`](vercel.json)), sending `CRON_SECRET`. Admins can also run it from the admin page.
 - **Admins:** promote an existing account from the Supabase SQL editor:
   `update profiles set role = 'admin' where id = (select id from auth.users where email = '…');`

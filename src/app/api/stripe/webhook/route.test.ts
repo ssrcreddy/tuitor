@@ -9,8 +9,10 @@ vi.mock("@/lib/payments", () => ({
 }));
 
 const SECRET = "whsec_test_secret";
+const CONNECT_SECRET = "whsec_test_connect_secret";
 process.env.STRIPE_SECRET_KEY = "sk_test_dummy";
 process.env.STRIPE_WEBHOOK_SECRET = SECRET;
+process.env.STRIPE_CONNECT_WEBHOOK_SECRET = CONNECT_SECRET;
 
 const { POST } = await import("./route");
 const payments = await import("@/lib/payments");
@@ -53,6 +55,12 @@ describe("Stripe webhook", () => {
     }
     expect(payments.handleCheckoutExpired).toHaveBeenCalledOnce();
     expect(payments.handleChargeRefunded).toHaveBeenCalledOnce();
+    expect(payments.handleAccountUpdated).toHaveBeenCalledOnce();
+  });
+
+  it("accepts Connect events signed with the Connect endpoint's secret", async () => {
+    const res = await POST(signedRequest({ ...completed, type: "account.updated" }, CONNECT_SECRET));
+    expect(res.status).toBe(200);
     expect(payments.handleAccountUpdated).toHaveBeenCalledOnce();
   });
 
