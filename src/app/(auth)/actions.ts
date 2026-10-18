@@ -43,7 +43,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: meta, emailRedirectTo: `${await siteOrigin()}/auth/callback` },
+    options: { data: meta, emailRedirectTo: `${await siteOrigin()}/auth/callback?flow=email` },
   });
   if (error) return { error: error.message };
 
