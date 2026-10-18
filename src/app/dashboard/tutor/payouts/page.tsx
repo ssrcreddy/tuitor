@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth";
 import { formatMoney } from "@/lib/format";
-import { syncPayoutAccount } from "@/lib/payments";
+import { paymentsConfigured, syncPayoutAccount } from "@/lib/payments";
 import { createClient } from "@/lib/supabase/server";
 import { PayoutButton } from "./payout-button";
 
@@ -21,7 +21,8 @@ export default async function PayoutsPage() {
   // Refresh from Stripe on every visit, so returning from onboarding shows the latest state.
   let account: Awaited<ReturnType<typeof syncPayoutAccount>> | null = null;
   let stripeError: string | null = null;
-  if (tutor.stripe_account_id) {
+  const configured = paymentsConfigured();
+  if (configured && tutor.stripe_account_id) {
     try {
       account = await syncPayoutAccount(tutor.stripe_account_id);
     } catch (e) {
@@ -59,7 +60,9 @@ export default async function PayoutsPage() {
       </header>
 
       <section className="card space-y-3">
-        {ready ? (
+        {!configured ? (
+          <p className="text-sm text-muted">Payout setup isn&apos;t available yet. Please check back soon.</p>
+        ) : ready ? (
           <>
             <p className="font-medium text-success">Payouts are set up.</p>
             <PayoutButton action="dashboard" label="View payouts on Stripe" variant="secondary" />

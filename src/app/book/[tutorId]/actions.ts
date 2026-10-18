@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
-import { startCheckout } from "@/lib/payments";
+import { PAYMENTS_UNAVAILABLE, paymentsConfigured, startCheckout } from "@/lib/payments";
 import { siteOrigin } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,6 +18,7 @@ const holdSchema = z.object({
 /** Reserves the slot, then sends the student to Stripe Checkout. */
 export async function holdSlot(_prev: HoldState, formData: FormData): Promise<HoldState> {
   await requireProfile("student");
+  if (!paymentsConfigured()) return { error: PAYMENTS_UNAVAILABLE };
   const parsed = holdSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "That booking request was invalid. Please pick a time again." };
 

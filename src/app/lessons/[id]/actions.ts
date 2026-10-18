@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
-import { expireOpenCheckout, processRefunds, startCheckout } from "@/lib/payments";
+import {
+  expireOpenCheckout,
+  PAYMENTS_UNAVAILABLE,
+  paymentsConfigured,
+  processRefunds,
+  startCheckout,
+} from "@/lib/payments";
 import { siteOrigin } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 
@@ -25,7 +31,9 @@ export async function cancelLesson(id: string, _prev: LessonActionState, formDat
   const { data: booking, error } = await supabase.rpc("cancel_booking", { p_booking_id: id, p_reason: reason });
   if (error) return { error: error.message };
 
-  if (booking.refund_due) {
+  if (!paymentsConfigured()) {
+    // Nothing to do yet: a refund that's due stays recorded and the daily job makes it later.
+  } else if (booking.refund_due) {
     // A failed refund is recorded on the payment and retried by the daily job.
     await processRefunds(id).catch((e) => console.error(`Refund for booking ${id} failed`, e));
   } else if (booking.refund_due === null) {
@@ -39,6 +47,7 @@ export async function cancelLesson(id: string, _prev: LessonActionState, formDat
 
 export async function completePayment(id: string): Promise<LessonActionState> {
   await requireProfile("student");
+  if (!paymentsConfigured()) return { error: PAYMENTS_UNAVAILABLE };
   const supabase = await createClient();
   const {
     data: { user },

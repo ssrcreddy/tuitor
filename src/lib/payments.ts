@@ -6,6 +6,13 @@ import { createAdminClient } from "@/lib/supabase/server";
 // Server-only payment operations. These use the service-role client, so
 // callers must check who the user is first.
 
+/** Payments need Stripe and the Supabase service-role key; until both are set, booking is paused. */
+export function paymentsConfigured() {
+  return Boolean(process.env.STRIPE_SECRET_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+export const PAYMENTS_UNAVAILABLE = "Online booking is temporarily unavailable. Please try again later.";
+
 /** Stripe's minimum Checkout lifetime is 30 minutes; holds last hold_minutes() (35). */
 const CHECKOUT_MINUTES = 31;
 

@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { SubmitButton } from "@/components/submit-button";
 import { requireProfile } from "@/lib/auth";
 import { formatMoney } from "@/lib/format";
-import { runDailyJobs } from "@/lib/payments";
+import { paymentsConfigured, runDailyJobs } from "@/lib/payments";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Admin · Tuitor" };
@@ -24,7 +24,7 @@ async function reviewTutor(formData: FormData) {
 async function runJobsNow() {
   "use server";
   await requireProfile("admin");
-  await runDailyJobs();
+  if (paymentsConfigured()) await runDailyJobs();
   revalidatePath("/dashboard/admin");
 }
 
@@ -33,7 +33,8 @@ export default async function AdminDashboard() {
   const supabase = await createClient();
 
   // Admins can read all payments (RLS); the due lists are server-only functions.
-  const admin = createAdminClient();
+  const configured = paymentsConfigured();
+  const admin = configured ? createAdminClient() : null;
   const [{ data: failures }, { data: refundsDue }, { data: payoutsDue }] = await Promise.all([
     supabase
       .from("payments")
@@ -41,8 +42,8 @@ export default async function AdminDashboard() {
       .not("last_error", "is", null)
       .order("updated_at", { ascending: false })
       .limit(20),
-    admin.rpc("refunds_due", {}),
-    admin.rpc("payouts_due"),
+    admin ? admin.rpc("refunds_due", {}) : { data: null },
+    admin ? admin.rpc("payouts_due") : { data: null },
   ]);
 
   const { data: pending } = await supabase
@@ -89,10 +90,18 @@ export default async function AdminDashboard() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Payments</h2>
-        <p className="text-sm text-muted">
-          Refunds waiting: {refundsDue?.length ?? 0} · Tutor payouts waiting: {payoutsDue?.length ?? 0}. The daily job
-          completes finished lessons, retries refunds and pays tutors.
-        </p>
+        {!configured && (
+          <p role="alert" className="rounded-lg bg-danger-soft p-3 text-sm text-danger">
+            Payments aren&apos;t configured on this deployment, so booking is paused. Set STRIPE_SECRET_KEY,
+            STRIPE_WEBHOOK_SECRET, SUPABASE_SERVICE_ROLE_KEY and CRON_SECRET (see the README).
+          </p>
+        )}
+        {configured && (
+          <p className="text-sm text-muted">
+            Refunds waiting: {refundsDue?.length ?? 0} · Tutor payouts waiting: {payoutsDue?.length ?? 0}. The daily job
+            completes finished lessons, retries refunds and pays tutors.
+          </p>
+        )}
         {failures && failures.length > 0 && (
           <ul className="divide-y divide-border rounded-xl border border-border text-sm">
             {failures.map((f) => (
@@ -105,9 +114,11 @@ export default async function AdminDashboard() {
             ))}
           </ul>
         )}
-        <form action={runJobsNow}>
-          <SubmitButton variant="secondary">Run daily jobs now</SubmitButton>
-        </form>
+        {configured && (
+          <form action={runJobsNow}>
+            <SubmitButton variant="secondary">Run daily jobs now</SubmitButton>
+          </form>
+        )}
       </section>
     </div>
   );
