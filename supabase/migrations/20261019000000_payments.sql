@@ -19,6 +19,10 @@ alter table public.payments
   add column refunded_at        timestamptz,
   add column stripe_transfer_id text,
   add column transferred_at     timestamptz,
+  -- What the tutor actually received, in the platform's settlement currency
+  -- (e.g. CAD for a Canadian platform charging in USD).
+  add column transfer_amount_cents integer,
+  add column transfer_currency     text,
   add column last_error         text,
   add column updated_at         timestamptz not null default now();
 

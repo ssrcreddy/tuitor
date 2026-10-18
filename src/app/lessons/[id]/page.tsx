@@ -112,7 +112,12 @@ export default async function LessonPage({
       {payment && <PaymentNote payment={payment} lesson={lesson} isStudent={state.isStudent} />}
 
       {lesson.status === "cancelled" && lesson.cancelled_at && (
-        <CancellationNote lesson={lesson} viewerId={profile.id} isStudent={state.isStudent} />
+        <CancellationNote
+          lesson={lesson}
+          viewerId={profile.id}
+          isStudent={state.isStudent}
+          refunded={payment?.status === "refunded"}
+        />
       )}
 
       {state.upcoming && (
@@ -151,10 +156,21 @@ function cancelPolicy(lesson: Lesson, state: ReturnType<typeof lessonState>) {
   return "This lesson starts in less than 12 hours, so cancelling now isn't refunded.";
 }
 
-function CancellationNote({ lesson, viewerId, isStudent }: { lesson: Lesson; viewerId: string; isStudent: boolean }) {
+function CancellationNote({
+  lesson,
+  viewerId,
+  isStudent,
+  refunded,
+}: {
+  lesson: Lesson;
+  viewerId: string;
+  isStudent: boolean;
+  refunded: boolean;
+}) {
   const who = lesson.cancelled_by === viewerId ? "You" : lesson.cancelled_by === lesson.tutor_id ? "The tutor" : "The student";
+  // Once refunded, the payment line above says so.
   const refund =
-    lesson.refund_due === null
+    refunded || lesson.refund_due === null
       ? null
       : lesson.refund_due
         ? isStudent

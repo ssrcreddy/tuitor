@@ -182,9 +182,16 @@ export async function processRefunds(bookingId?: string) {
   return { refunded, failed };
 }
 
-/** Transfers the tutor's share of completed, paid lessons to their Stripe account. */
+/**
+ * Transfers the tutor's share of completed, paid lessons to their Stripe account.
+ *
+ * A charge settles in the platform's currency (a Canadian platform charging
+ * USD settles in CAD), and a transfer funded by that charge must use the same
+ * currency. So the tutor gets their share of the settled gross amount.
+ */
 export async function processPayouts() {
   const admin = createAdminClient();
+  const stripe = getStripe();
   const { data: due, error } = await admin.rpc("payouts_due");
   if (error) throw new Error(error.message);
 
@@ -192,14 +199,19 @@ export async function processPayouts() {
   let failed = 0;
   for (const row of due ?? []) {
     try {
-      const transfer = await getStripe().transfers.create(
+      const charge = await stripe.charges.retrieve(row.stripe_charge_id, { expand: ["balance_transaction"] });
+      const settled = charge.balance_transaction as Stripe.BalanceTransaction | null;
+      if (!settled) throw new Error("The payment hasn't settled yet.");
+      const amount = Math.floor((settled.amount * row.amount_cents) / charge.amount);
+
+      const transfer = await stripe.transfers.create(
         {
-          amount: row.amount_cents,
-          currency: row.currency.toLowerCase(),
+          amount,
+          currency: settled.currency,
           destination: row.stripe_account_id,
           source_transaction: row.stripe_charge_id,
           transfer_group: row.booking_id,
-          metadata: { booking_id: row.booking_id },
+          metadata: { booking_id: row.booking_id, share_cents: row.amount_cents, share_currency: row.currency },
         },
         { idempotencyKey: `payout-${row.payment_id}` },
       );
@@ -208,6 +220,8 @@ export async function processPayouts() {
         .update({
           stripe_transfer_id: transfer.id,
           transferred_at: new Date().toISOString(),
+          transfer_amount_cents: transfer.amount,
+          transfer_currency: transfer.currency.toUpperCase(),
           last_error: null,
           updated_at: new Date().toISOString(),
         })
@@ -250,16 +264,26 @@ export async function startPayoutOnboarding(tutorId: string, email: string | und
   if (!accountId) {
     const platform = await stripe.accounts.retrieveCurrent();
     const country = tutor.country ?? platform.country ?? "US";
-    const account = await stripe.accounts.create({
-      type: "express",
-      country,
-      email,
-      business_type: "individual",
-      capabilities: { transfers: { requested: true } },
-      metadata: { tutor_id: tutorId },
-      // Tutors outside the platform's country can only receive payouts as recipients.
-      ...(country !== platform.country ? { tos_acceptance: { service_agreement: "recipient" as const } } : {}),
-    });
+    let account: Stripe.Account;
+    try {
+      account = await stripe.accounts.create({
+        type: "express",
+        country,
+        email,
+        business_type: "individual",
+        capabilities: { transfers: { requested: true } },
+        metadata: { tutor_id: tutorId },
+        // Tutors outside the platform's country can only receive payouts as recipients.
+        ...(country !== platform.country ? { tos_acceptance: { service_agreement: "recipient" as const } } : {}),
+      });
+    } catch (e) {
+      // Which countries a platform can pay depends on where it's based (see README).
+      if (e instanceof Error && /not supported for platforms|cannot be created by platforms/i.test(e.message)) {
+        const place = new Intl.DisplayNames(["en"], { type: "region" }).of(country) ?? country;
+        throw new Error(`Payouts to tutors in ${place} aren't available yet. We'll let you know when they are.`);
+      }
+      throw e;
+    }
     accountId = account.id;
     await admin.from("tutor_profiles").update({ stripe_account_id: accountId }).eq("user_id", tutorId);
   }

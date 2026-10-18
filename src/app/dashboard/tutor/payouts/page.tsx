@@ -1,31 +1,11 @@
 import { redirect } from "next/navigation";
-import { SubmitButton } from "@/components/submit-button";
 import { requireProfile } from "@/lib/auth";
 import { formatMoney } from "@/lib/format";
-import { payoutDashboardUrl, startPayoutOnboarding, syncPayoutAccount } from "@/lib/payments";
-import { siteOrigin } from "@/lib/site";
+import { syncPayoutAccount } from "@/lib/payments";
 import { createClient } from "@/lib/supabase/server";
+import { PayoutButton } from "./payout-button";
 
 export const metadata = { title: "Payouts · Tuitor" };
-
-async function setUpPayouts() {
-  "use server";
-  const profile = await requireProfile("tutor");
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  redirect(await startPayoutOnboarding(profile.id, user?.email, await siteOrigin()));
-}
-
-async function openStripeDashboard() {
-  "use server";
-  const profile = await requireProfile("tutor");
-  const supabase = await createClient();
-  const { data } = await supabase.from("tutor_profiles").select("stripe_account_id").eq("user_id", profile.id).single();
-  if (!data?.stripe_account_id) redirect("/dashboard/tutor/payouts");
-  redirect(await payoutDashboardUrl(data.stripe_account_id));
-}
 
 export default async function PayoutsPage() {
   const profile = await requireProfile("tutor");
@@ -82,9 +62,7 @@ export default async function PayoutsPage() {
         {ready ? (
           <>
             <p className="font-medium text-success">Payouts are set up.</p>
-            <form action={openStripeDashboard}>
-              <SubmitButton variant="secondary">View payouts on Stripe</SubmitButton>
-            </form>
+            <PayoutButton action="dashboard" label="View payouts on Stripe" variant="secondary" />
           </>
         ) : (
           <>
@@ -97,9 +75,7 @@ export default async function PayoutsPage() {
               Stripe verifies your identity and bank details. Lessons you teach before this is done are paid once
               it&apos;s finished.
             </p>
-            <form action={setUpPayouts}>
-              <SubmitButton>{tutor.stripe_account_id ? "Continue Stripe setup" : "Set up payouts"}</SubmitButton>
-            </form>
+            <PayoutButton action="setUp" label={tutor.stripe_account_id ? "Continue Stripe setup" : "Set up payouts"} />
           </>
         )}
         {stripeError && (
