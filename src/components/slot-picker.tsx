@@ -6,8 +6,11 @@ import { groupByDay } from "@/lib/scheduling";
 
 const subscribe = () => () => {};
 
-/** Free slots grouped by day in the viewer's own timezone. */
-export function SlotPicker({ tutorId, slots }: { tutorId: string; slots: string[] }) {
+/**
+ * Free slots grouped by day in the viewer's own timezone. Each slot links to
+ * `hrefBase` followed by the URL-encoded ISO start time.
+ */
+export function SlotPicker({ hrefBase, slots }: { hrefBase: string; slots: string[] }) {
   const timezone = useSyncExternalStore(
     subscribe,
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -45,7 +48,7 @@ export function SlotPicker({ tutorId, slots }: { tutorId: string; slots: string[
         {daySlots.map((slot) => (
           <li key={slot.toISOString()}>
             <Link
-              href={`/book/${tutorId}?start=${encodeURIComponent(slot.toISOString())}`}
+              href={`${hrefBase}${encodeURIComponent(slot.toISOString())}`}
               className="btn-secondary w-full"
             >
               {timeLabel(slot)}

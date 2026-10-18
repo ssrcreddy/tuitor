@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import { Avatar } from "@/components/avatar";
 import { LocalTime } from "@/components/local-time";
+import { SlotPicker } from "@/components/slot-picker";
 import { formatMoney } from "@/lib/format";
 import { generateSlots } from "@/lib/scheduling";
 import { createClient } from "@/lib/supabase/server";
-import { SlotPicker } from "./slot-picker";
 
 const DAYS_SHOWN = 14;
 
@@ -107,7 +107,7 @@ export default async function TutorPage({ params }: { params: Promise<{ id: stri
           <h2 className="text-xl font-semibold">Schedule</h2>
           <p className="mt-1 text-sm text-muted">Shown in your timezone. Pick a time to book.</p>
           <div className="mt-4">
-            <SlotPicker tutorId={id} slots={slots} />
+            <SlotPicker hrefBase={`/book/${id}?start=`} slots={slots} />
           </div>
         </section>
 

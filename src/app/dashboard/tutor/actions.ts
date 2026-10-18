@@ -1,5 +1,6 @@
 "use server";
 
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -53,15 +54,27 @@ const timeOfDay = z.string().regex(/^([01]\d|2[0-4]):[0-5]\d$/);
 export async function saveAvailability(_prev: FormState, formData: FormData): Promise<FormState> {
   const profile = await requireProfile("tutor");
 
+  // One entry per time window; a day can have several (e.g. mornings and evenings).
+  const weekdays = formData.getAll("weekday");
+  const starts = formData.getAll("start");
+  const ends = formData.getAll("end");
+
   const rules: { tutor_id: string; weekday: number; start_time: string; end_time: string }[] = [];
-  for (let weekday = 0; weekday < 7; weekday++) {
-    if (formData.get(`day-${weekday}`) !== "on") continue;
-    const start = timeOfDay.safeParse(formData.get(`start-${weekday}`));
-    const end = timeOfDay.safeParse(formData.get(`end-${weekday}`));
-    if (!start.success || !end.success || end.data <= start.data) {
-      return { error: "Each selected day needs an end time later than its start time." };
+  for (let i = 0; i < weekdays.length; i++) {
+    const weekday = z.coerce.number().int().min(0).max(6).safeParse(weekdays[i]);
+    const start = timeOfDay.safeParse(starts[i]);
+    const end = timeOfDay.safeParse(ends[i]);
+    if (!weekday.success || !start.success || !end.success || end.data <= start.data) {
+      return { error: "Each time window needs an end time later than its start time." };
     }
-    rules.push({ tutor_id: profile.id, weekday, start_time: start.data, end_time: end.data });
+    rules.push({ tutor_id: profile.id, weekday: weekday.data, start_time: start.data, end_time: end.data });
+  }
+
+  const sorted = [...rules].sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time));
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].weekday === sorted[i - 1].weekday && sorted[i].start_time < sorted[i - 1].end_time) {
+      return { error: "Time windows on the same day can't overlap." };
+    }
   }
 
   const supabase = await createClient();
@@ -74,4 +87,60 @@ export async function saveAvailability(_prev: FormState, formData: FormData): Pr
 
   revalidatePath("/dashboard/tutor");
   return { saved: true };
+}
+
+export type TimeOffState = FormState & { conflicts?: number };
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date.");
+
+/** The calendar day after `day` (yyyy-MM-dd). */
+function nextDay(day: string) {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+}
+
+/** Blocks whole days, from the start of `from` to the end of `to`, in the tutor's timezone. */
+export async function addTimeOff(_prev: TimeOffState, formData: FormData): Promise<TimeOffState> {
+  const profile = await requireProfile("tutor");
+  const parsed = z
+    .object({ from: isoDate, to: isoDate, note: z.string().trim().max(200).optional() })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { from, to, note } = parsed.data;
+
+  const today = formatInTimeZone(new Date(), profile.timezone, "yyyy-MM-dd");
+  if (from < today) return { error: "Time off can't start in the past." };
+  if (to < from) return { error: "The last day must be on or after the first day." };
+
+  const startsAt = fromZonedTime(`${from}T00:00:00`, profile.timezone);
+  const endsAt = fromZonedTime(`${nextDay(to)}T00:00:00`, profile.timezone);
+  if (endsAt.getTime() - startsAt.getTime() > 92 * 86_400_000) return { error: "Add at most 3 months at a time." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("availability_exceptions").insert({
+    tutor_id: profile.id,
+    starts_at: startsAt.toISOString(),
+    ends_at: endsAt.toISOString(),
+    note: note || null,
+  });
+  if (error) return { error: "Could not save your time off." };
+
+  // Existing lessons in this period are not cancelled automatically.
+  const { count } = await supabase
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("tutor_id", profile.id)
+    .eq("status", "confirmed")
+    .lt("starts_at", endsAt.toISOString())
+    .gt("ends_at", startsAt.toISOString());
+
+  revalidatePath("/dashboard/tutor/availability");
+  return { saved: true, conflicts: count ?? 0 };
+}
+
+export async function removeTimeOff(formData: FormData) {
+  const profile = await requireProfile("tutor");
+  const supabase = await createClient();
+  await supabase.from("availability_exceptions").delete().eq("id", Number(formData.get("id"))).eq("tutor_id", profile.id);
+  revalidatePath("/dashboard/tutor/availability");
 }

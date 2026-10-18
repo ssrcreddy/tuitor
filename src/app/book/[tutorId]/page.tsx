@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { LocalTime } from "@/components/local-time";
 import { requireProfile } from "@/lib/auth";
 import { formatMoney } from "@/lib/format";
-import { LESSON_MINUTES } from "@/lib/scheduling";
+import { CHANGE_CUTOFF_HOURS, LESSON_MINUTES } from "@/lib/scheduling";
 import { createClient } from "@/lib/supabase/server";
 import { BookForm } from "./book-form";
 
@@ -66,11 +66,9 @@ export default async function BookPage({
         <dd className="text-right text-lg font-semibold">{formatMoney(price, tutor.currency)}</dd>
       </dl>
 
-      {trialAvailable && (
-        <p className="mt-3 text-sm text-muted">
-          If this tutor isn&apos;t the right fit, you can try someone else for free.
-        </p>
-      )}
+      <p className="mt-3 text-sm text-muted">
+        Free cancellation and rescheduling up to {CHANGE_CUTOFF_HOURS} hours before the lesson.
+      </p>
 
       <BookForm tutorId={tutorId} startsAt={startsAt.toISOString()} type={type} />
     </div>

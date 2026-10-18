@@ -4,6 +4,8 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 export const LESSON_MINUTES = 60;
 /** Must match the lead time enforced by public.create_booking_hold(). */
 export const MIN_LEAD_HOURS = 12;
+/** Must match public.change_cutoff(): free cancellation and rescheduling end this long before a lesson. */
+export const CHANGE_CUTOFF_HOURS = 12;
 
 export type AvailabilityRule = {
   weekday: number; // 0 = Sunday, in the tutor's timezone

@@ -1,48 +1,79 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { WEEKDAYS } from "@/lib/languages";
 import { saveAvailability, type FormState } from "../actions";
 
 type Rule = { weekday: number; start_time: string; end_time: string };
+type TimeWindow = { key: number; weekday: number; start: string; end: string };
 
-/** One availability window per weekday. */
+// Show Monday first.
+const ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+/** Weekly availability: any number of time windows per day. */
 export function AvailabilityForm({ rules }: { rules: Rule[] }) {
   const [state, action] = useActionState<FormState, FormData>(saveAvailability, {});
-  const byDay = new Map(rules.map((r) => [r.weekday, r]));
+  const [windows, setWindows] = useState<TimeWindow[]>(() =>
+    rules.map((r, i) => ({ key: i, weekday: r.weekday, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5) })),
+  );
+  const [nextKey, setNextKey] = useState(rules.length);
 
-  // Show Monday first.
-  const order = [1, 2, 3, 4, 5, 6, 0];
+  const add = (weekday: number) => {
+    const existing = windows.filter((w) => w.weekday === weekday);
+    const last = existing.at(-1);
+    // Suggest the hours after the day's last window, or a normal working day.
+    const start = last ? last.end : "09:00";
+    const end = last ? `${String(Math.min(23, Number(last.end.slice(0, 2)) + 4)).padStart(2, "0")}:00` : "17:00";
+    setWindows([...windows, { key: nextKey, weekday, start, end }]);
+    setNextKey(nextKey + 1);
+  };
+  const remove = (key: number) => setWindows(windows.filter((w) => w.key !== key));
 
   return (
     <form action={action} className="mt-8 space-y-4">
       <ul className="divide-y divide-border rounded-xl border border-border">
-        {order.map((weekday) => {
-          const rule = byDay.get(weekday);
+        {ORDER.map((weekday) => {
+          const day = windows.filter((w) => w.weekday === weekday);
           return (
-            <li key={weekday} className="flex flex-wrap items-center gap-3 p-4">
-              <label className="flex w-36 items-center gap-2 text-sm font-medium">
-                <input type="checkbox" name={`day-${weekday}`} defaultChecked={!!rule} />
-                {WEEKDAYS[weekday]}
-              </label>
-              <input
-                type="time"
-                step={3600}
-                name={`start-${weekday}`}
-                defaultValue={rule?.start_time.slice(0, 5) ?? "09:00"}
-                aria-label={`${WEEKDAYS[weekday]} start`}
-                className="input mt-0 w-32"
-              />
-              <span className="text-muted">to</span>
-              <input
-                type="time"
-                step={3600}
-                name={`end-${weekday}`}
-                defaultValue={rule?.end_time.slice(0, 5) ?? "17:00"}
-                aria-label={`${WEEKDAYS[weekday]} end`}
-                className="input mt-0 w-32"
-              />
+            <li key={weekday} className="flex flex-wrap items-start gap-3 p-4">
+              <span className="w-28 pt-2 text-sm font-medium">{WEEKDAYS[weekday]}</span>
+              <div className="flex-1 space-y-2">
+                {day.length === 0 && <p className="pt-2 text-sm text-muted">Unavailable</p>}
+                {day.map((w) => (
+                  <div key={w.key} className="flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="weekday" value={weekday} />
+                    <input
+                      type="time"
+                      step={3600}
+                      name="start"
+                      defaultValue={w.start}
+                      aria-label={`${WEEKDAYS[weekday]} from`}
+                      className="input mt-0 w-32"
+                    />
+                    <span className="text-muted">to</span>
+                    <input
+                      type="time"
+                      step={3600}
+                      name="end"
+                      defaultValue={w.end}
+                      aria-label={`${WEEKDAYS[weekday]} to`}
+                      className="input mt-0 w-32"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => remove(w.key)}
+                      aria-label={`Remove ${WEEKDAYS[weekday]} ${w.start} window`}
+                      className="btn-secondary px-3 py-2"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={() => add(weekday)} className="link pt-2 text-sm">
+                + Add hours
+              </button>
             </li>
           );
         })}

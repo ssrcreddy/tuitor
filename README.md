@@ -64,7 +64,7 @@ All seed accounts use the password `password123`. They're listed at the top of [
 
 1. ~~Setup: schema, RLS, seed, auth and roles~~
 2. ~~Tutor onboarding, admin approval, search and profiles~~
-3. Scheduling and booking: holds are done; next is cancelling and rescheduling
+3. ~~Scheduling and booking: holds, cancel and reschedule (12-hour policy), tutor time off~~
 4. Payments: Stripe Checkout and Connect, packages, refunds
 5. Lesson room: a Daily.co video room for each booking, plus transcription
 6. AI layer: lesson reports (Claude) that the tutor approves, a practice partner, and a progress view

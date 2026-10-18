@@ -152,3 +152,24 @@ select i.id, i.student_id, i.tutor_id, p.rating, p.body, i.ends_at + interval '2
   join auth.users su on su.id = i.student_id
   join seed_tutor st on st.id = i.tutor_id
   join past p on p.student_email = su.email and p.tutor_email = st.email;
+
+-- Upcoming confirmed lessons (as if paid), for trying cancel and reschedule.
+-- Each is the tutor's next weekday at least 3 days out, at the given hour in their time.
+insert into public.bookings (student_id, tutor_id, starts_at, ends_at, type, status, price_cents, platform_fee_cents, currency)
+select su.id, st.id, s.starts_at, s.starts_at + interval '60 minutes',
+       'regular', 'confirmed', tp.hourly_rate_cents,
+       public.platform_fee_cents('regular', tp.hourly_rate_cents), tp.currency
+  from (values ('alex@tuitor.test', 'lucia@tuitor.test', 10), ('alex@tuitor.test', 'mateo@tuitor.test', 12),
+               ('sam@tuitor.test', 'priya@tuitor.test', 10)) as l(student_email, tutor_email, hour)
+  join auth.users su on su.email = l.student_email
+  join seed_tutor st on st.email = l.tutor_email
+  join public.tutor_profiles tp on tp.user_id = st.id
+  join public.profiles tz on tz.id = st.id
+  cross join lateral (
+    select (d::date + make_time(l.hour, 0, 0)) at time zone tz.timezone as starts_at
+      from generate_series((now() at time zone tz.timezone)::date + 3,
+                           (now() at time zone tz.timezone)::date + 10, interval '1 day') as d
+     where extract(isodow from d) between 1 and 5
+     order by d
+     limit 1
+  ) s;

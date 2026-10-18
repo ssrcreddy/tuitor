@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/lesson", "/practice", "/messages", "/book"];
+const PROTECTED_PREFIXES = ["/dashboard", "/lesson", "/lessons", "/practice", "/messages", "/book"];
 
 /** Refreshes the auth session cookie and guards signed-in-only routes. */
 export async function updateSession(request: NextRequest) {

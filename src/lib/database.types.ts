@@ -65,17 +65,23 @@ isOneToOne: false
                   ]
                 },"bookings": {
                   Row: {
-                    "created_at": string,"currency": string,"daily_room_url": string | null,"ends_at": string,"hold_expires_at": string | null,"id": string,"package_id": string | null,"platform_fee_cents": number,"price_cents": number,"starts_at": string,"status": Database["public"]['Enums']["booking_status"],"student_id": string,"tutor_id": string,"type": Database["public"]['Enums']["booking_type"]
+                    "cancellation_reason": string | null,"cancelled_at": string | null,"cancelled_by": string | null,"created_at": string,"currency": string,"daily_room_url": string | null,"ends_at": string,"hold_expires_at": string | null,"id": string,"package_id": string | null,"platform_fee_cents": number,"price_cents": number,"refund_due": boolean | null,"reschedule_count": number,"starts_at": string,"status": Database["public"]['Enums']["booking_status"],"student_id": string,"tutor_id": string,"type": Database["public"]['Enums']["booking_type"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"currency": string,"daily_room_url"?: string | null,"ends_at": string,"hold_expires_at"?: string | null,"id"?: string,"package_id"?: string | null,"platform_fee_cents": number,"price_cents": number,"starts_at": string,"status"?: Database["public"]['Enums']["booking_status"],"student_id": string,"tutor_id": string,"type": Database["public"]['Enums']["booking_type"]
+                    "cancellation_reason"?: string | null,"cancelled_at"?: string | null,"cancelled_by"?: string | null,"created_at"?: string,"currency": string,"daily_room_url"?: string | null,"ends_at": string,"hold_expires_at"?: string | null,"id"?: string,"package_id"?: string | null,"platform_fee_cents": number,"price_cents": number,"refund_due"?: boolean | null,"reschedule_count"?: number,"starts_at": string,"status"?: Database["public"]['Enums']["booking_status"],"student_id": string,"tutor_id": string,"type": Database["public"]['Enums']["booking_type"]
                   }
                   Update: {
-                    "created_at"?: string,"currency"?: string,"daily_room_url"?: string | null,"ends_at"?: string,"hold_expires_at"?: string | null,"id"?: string,"package_id"?: string | null,"platform_fee_cents"?: number,"price_cents"?: number,"starts_at"?: string,"status"?: Database["public"]['Enums']["booking_status"],"student_id"?: string,"tutor_id"?: string,"type"?: Database["public"]['Enums']["booking_type"]
+                    "cancellation_reason"?: string | null,"cancelled_at"?: string | null,"cancelled_by"?: string | null,"created_at"?: string,"currency"?: string,"daily_room_url"?: string | null,"ends_at"?: string,"hold_expires_at"?: string | null,"id"?: string,"package_id"?: string | null,"platform_fee_cents"?: number,"price_cents"?: number,"refund_due"?: boolean | null,"reschedule_count"?: number,"starts_at"?: string,"status"?: Database["public"]['Enums']["booking_status"],"student_id"?: string,"tutor_id"?: string,"type"?: Database["public"]['Enums']["booking_type"]
                   }
                   Relationships: [
                     {
+      foreignKeyName: "bookings_cancelled_by_fkey"
+      columns: ["cancelled_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "bookings_package_fk"
       columns: ["package_id"]
 isOneToOne: false
@@ -354,9 +360,36 @@ isOneToOne: true
             "admin_set_tutor_status":
 { Args: { "p_status": Database["public"]['Enums']["tutor_status"],"p_tutor_id": string }; Returns: undefined
                            },
-"create_booking_hold":
-{ Args: { "p_starts_at": string,"p_tutor_id": string,"p_type": Database["public"]['Enums']["booking_type"] }; Returns: {
-              "created_at": string,
+"assert_slot_bookable":
+{ Args: { "p_starts_at": string,"p_tutor_id": string }; Returns: {
+              "bio": string,
+"country": string | null,
+"created_at": string,
+"currency": string,
+"headline": string,
+"hourly_rate_cents": number,
+"lessons_taught": number,
+"rating_avg": number,
+"review_count": number,
+"status": Database["public"]['Enums']["tutor_status"],
+"stripe_account_id": string | null,
+"trial_rate_cents": number,
+"updated_at": string,
+"user_id": string,
+"video_url": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "tutor_profiles"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"cancel_booking":
+{ Args: { "p_booking_id": string,"p_reason"?: string }; Returns: {
+              "cancellation_reason": string | null,
+"cancelled_at": string | null,
+"cancelled_by": string | null,
+"created_at": string,
 "currency": string,
 "daily_room_url": string | null,
 "ends_at": string,
@@ -365,6 +398,39 @@ isOneToOne: true
 "package_id": string | null,
 "platform_fee_cents": number,
 "price_cents": number,
+"refund_due": boolean | null,
+"reschedule_count": number,
+"starts_at": string,
+"status": Database["public"]['Enums']["booking_status"],
+"student_id": string,
+"tutor_id": string,
+"type": Database["public"]['Enums']["booking_type"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "bookings"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"change_cutoff":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
+"create_booking_hold":
+{ Args: { "p_starts_at": string,"p_tutor_id": string,"p_type": Database["public"]['Enums']["booking_type"] }; Returns: {
+              "cancellation_reason": string | null,
+"cancelled_at": string | null,
+"cancelled_by": string | null,
+"created_at": string,
+"currency": string,
+"daily_room_url": string | null,
+"ends_at": string,
+"hold_expires_at": string | null,
+"id": string,
+"package_id": string | null,
+"platform_fee_cents": number,
+"price_cents": number,
+"refund_due": boolean | null,
+"reschedule_count": number,
 "starts_at": string,
 "status": Database["public"]['Enums']["booking_status"],
 "student_id": string,
@@ -386,6 +452,37 @@ isOneToOne: true
 "platform_fee_cents":
 { Args: { "p_price": number,"p_type": Database["public"]['Enums']["booking_type"] }; Returns: number
                            },
+"release_expired_holds":
+{ Args: { "p_tutor_id": string }; Returns: undefined
+                           },
+"reschedule_booking":
+{ Args: { "p_booking_id": string,"p_new_starts_at": string }; Returns: {
+              "cancellation_reason": string | null,
+"cancelled_at": string | null,
+"cancelled_by": string | null,
+"created_at": string,
+"currency": string,
+"daily_room_url": string | null,
+"ends_at": string,
+"hold_expires_at": string | null,
+"id": string,
+"package_id": string | null,
+"platform_fee_cents": number,
+"price_cents": number,
+"refund_due": boolean | null,
+"reschedule_count": number,
+"starts_at": string,
+"status": Database["public"]['Enums']["booking_status"],
+"student_id": string,
+"tutor_id": string,
+"type": Database["public"]['Enums']["booking_type"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "bookings"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "tutor_busy_times":
 { Args: { "p_from": string,"p_to": string,"p_tutor_id": string }; Returns: {
               "ends_at": string,"starts_at": string
