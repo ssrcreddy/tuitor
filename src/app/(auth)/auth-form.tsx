@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { PasswordInput } from "@/components/password-input";
 import { SubmitButton } from "@/components/submit-button";
 import { TimezoneInput } from "@/components/timezone-input";
 import { signIn, signInWithGoogle, signUp, type AuthState } from "./actions";
@@ -61,13 +62,11 @@ export function AuthForm({
         </label>
         <label className="block">
           <span className="label">Password</span>
-          <input
+          <PasswordInput
             name="password"
-            type="password"
             required
             minLength={8}
             autoComplete={isSignup ? "new-password" : "current-password"}
-            className="input"
           />
         </label>
 
