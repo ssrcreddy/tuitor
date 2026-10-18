@@ -2,7 +2,8 @@ import { revalidatePath } from "next/cache";
 import { SubmitButton } from "@/components/submit-button";
 import { requireProfile } from "@/lib/auth";
 import { formatMoney } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
+import { runDailyJobs } from "@/lib/payments";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Admin · Tuitor" };
 
@@ -20,9 +21,29 @@ async function reviewTutor(formData: FormData) {
   revalidatePath("/tutors");
 }
 
+async function runJobsNow() {
+  "use server";
+  await requireProfile("admin");
+  await runDailyJobs();
+  revalidatePath("/dashboard/admin");
+}
+
 export default async function AdminDashboard() {
   await requireProfile("admin");
   const supabase = await createClient();
+
+  // Admins can read all payments (RLS); the due lists are server-only functions.
+  const admin = createAdminClient();
+  const [{ data: failures }, { data: refundsDue }, { data: payoutsDue }] = await Promise.all([
+    supabase
+      .from("payments")
+      .select("id, booking_id, amount_cents, currency, last_error, updated_at")
+      .not("last_error", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(20),
+    admin.rpc("refunds_due", {}),
+    admin.rpc("payouts_due"),
+  ]);
 
   const { data: pending } = await supabase
     .from("tutor_profiles")
@@ -64,6 +85,29 @@ export default async function AdminDashboard() {
             </form>
           </article>
         ))}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Payments</h2>
+        <p className="text-sm text-muted">
+          Refunds waiting: {refundsDue?.length ?? 0} · Tutor payouts waiting: {payoutsDue?.length ?? 0}. The daily job
+          completes finished lessons, retries refunds and pays tutors.
+        </p>
+        {failures && failures.length > 0 && (
+          <ul className="divide-y divide-border rounded-xl border border-border text-sm">
+            {failures.map((f) => (
+              <li key={f.id} className="space-y-1 p-4">
+                <a href={`/lessons/${f.booking_id}`} className="link">
+                  {formatMoney(f.amount_cents, f.currency)} payment
+                </a>
+                <p className="text-danger">{f.last_error}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form action={runJobsNow}>
+          <SubmitButton variant="secondary">Run daily jobs now</SubmitButton>
+        </form>
       </section>
     </div>
   );

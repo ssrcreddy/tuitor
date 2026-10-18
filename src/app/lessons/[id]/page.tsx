@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { notFound } from "next/navigation";
 import { LocalTime } from "@/components/local-time";
 import { requireProfile } from "@/lib/auth";
@@ -7,6 +8,7 @@ import { lessonState, loadLesson, type Lesson } from "@/lib/lessons";
 import { CHANGE_CUTOFF_HOURS, LESSON_MINUTES } from "@/lib/scheduling";
 import { createClient } from "@/lib/supabase/server";
 import { CancelForm } from "./cancel-form";
+import { PayButton } from "./pay-button";
 
 export const metadata = { title: "Lesson · Tuitor" };
 
@@ -24,9 +26,9 @@ export default async function LessonPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ rescheduled?: string }>;
+  searchParams: Promise<{ rescheduled?: string; paid?: string }>;
 }) {
-  const [{ id }, { rescheduled }] = await Promise.all([params, searchParams]);
+  const [{ id }, { rescheduled, paid }] = await Promise.all([params, searchParams]);
   const profile = await requireProfile();
   const supabase = await createClient();
 
@@ -34,6 +36,15 @@ export default async function LessonPage({
   if (!lesson) notFound();
 
   const state = lessonState(lesson, profile.id);
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("status, refunded_at, transferred_at, last_error")
+    .eq("booking_id", id)
+    .in("status", ["succeeded", "refunded"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const confirming = Boolean(paid) && lesson.status === "pending_payment";
   const tutorName = lesson.tutor?.profile?.full_name ?? "Tutor";
   const studentName = lesson.student?.full_name ?? "Student";
   const counterpart = state.isStudent ? tutorName : studentName;
@@ -51,6 +62,18 @@ export default async function LessonPage({
         </h1>
         <span className="chip">{state.statusLabel}</span>
       </header>
+
+      {confirming && (
+        <p role="status" className="rounded-lg bg-surface p-3 text-sm">
+          Payment received. Confirming your lesson…
+          <AutoRefresh />
+        </p>
+      )}
+      {paid && lesson.status === "confirmed" && (
+        <p role="status" className="rounded-lg bg-success-soft p-3 text-sm text-success">
+          Payment received. Your lesson is confirmed.
+        </p>
+      )}
 
       {rescheduled && state.upcoming && (
         <p role="status" className="rounded-lg bg-success-soft p-3 text-sm text-success">
@@ -86,12 +109,24 @@ export default async function LessonPage({
         )}
       </dl>
 
+      {payment && <PaymentNote payment={payment} lesson={lesson} isStudent={state.isStudent} />}
+
       {lesson.status === "cancelled" && lesson.cancelled_at && (
         <CancellationNote lesson={lesson} viewerId={profile.id} isStudent={state.isStudent} />
       )}
 
       {state.upcoming && (
         <section className="space-y-3">
+          {state.isStudent && lesson.status === "pending_payment" && !confirming && (
+            <div className="card space-y-3">
+              <p className="text-sm">
+                This time is reserved for you until{" "}
+                <LocalTime iso={lesson.hold_expires_at!} options={{ hour: "numeric", minute: "2-digit" }} />. Pay to
+                confirm the lesson.
+              </p>
+              <PayButton lessonId={lesson.id} />
+            </div>
+          )}
           {state.canReschedule && (
             <Link href={`/lessons/${lesson.id}/reschedule`} className="btn-secondary w-full">
               Reschedule
@@ -136,5 +171,24 @@ function CancellationNote({ lesson, viewerId, isStudent }: { lesson: Lesson; vie
       {lesson.cancellation_reason && <p className="text-muted">“{lesson.cancellation_reason}”</p>}
       {refund && <p>{refund}</p>}
     </div>
+  );
+}
+
+type PaymentSummary = { status: string; refunded_at: string | null; transferred_at: string | null; last_error: string | null };
+
+function PaymentNote({ payment, lesson, isStudent }: { payment: PaymentSummary; lesson: Lesson; isStudent: boolean }) {
+  let text: string;
+  if (payment.status === "refunded") text = isStudent ? "Refunded to your card." : "Refunded to the student.";
+  else if (lesson.refund_due) text = isStudent ? "Refund on its way." : "Refund to the student in progress.";
+  else if (isStudent) text = "Paid.";
+  else if (payment.transferred_at) text = "Paid out to your Stripe account.";
+  else if (lesson.status === "completed") text = "Payout pending. Payouts are sent daily once your Stripe account is set up.";
+  else text = "Paid by the student. You'll be paid after the lesson.";
+
+  return (
+    <p className="text-sm">
+      <span className="text-muted">Payment: </span>
+      {text}
+    </p>
   );
 }

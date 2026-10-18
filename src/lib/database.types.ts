@@ -201,14 +201,14 @@ isOneToOne: false
                   ]
                 },"payments": {
                   Row: {
-                    "amount_cents": number,"booking_id": string | null,"created_at": string,"currency": string,"id": string,"package_id": string | null,"status": Database["public"]['Enums']["payment_status"],"stripe_checkout_session_id": string | null,"stripe_payment_intent_id": string | null
+                    "amount_cents": number,"booking_id": string | null,"created_at": string,"currency": string,"id": string,"last_error": string | null,"package_id": string | null,"refunded_at": string | null,"status": Database["public"]['Enums']["payment_status"],"stripe_charge_id": string | null,"stripe_checkout_session_id": string | null,"stripe_payment_intent_id": string | null,"stripe_refund_id": string | null,"stripe_transfer_id": string | null,"transferred_at": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount_cents": number,"booking_id"?: string | null,"created_at"?: string,"currency": string,"id"?: string,"package_id"?: string | null,"status"?: Database["public"]['Enums']["payment_status"],"stripe_checkout_session_id"?: string | null,"stripe_payment_intent_id"?: string | null
+                    "amount_cents": number,"booking_id"?: string | null,"created_at"?: string,"currency": string,"id"?: string,"last_error"?: string | null,"package_id"?: string | null,"refunded_at"?: string | null,"status"?: Database["public"]['Enums']["payment_status"],"stripe_charge_id"?: string | null,"stripe_checkout_session_id"?: string | null,"stripe_payment_intent_id"?: string | null,"stripe_refund_id"?: string | null,"stripe_transfer_id"?: string | null,"transferred_at"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "amount_cents"?: number,"booking_id"?: string | null,"created_at"?: string,"currency"?: string,"id"?: string,"package_id"?: string | null,"status"?: Database["public"]['Enums']["payment_status"],"stripe_checkout_session_id"?: string | null,"stripe_payment_intent_id"?: string | null
+                    "amount_cents"?: number,"booking_id"?: string | null,"created_at"?: string,"currency"?: string,"id"?: string,"last_error"?: string | null,"package_id"?: string | null,"refunded_at"?: string | null,"status"?: Database["public"]['Enums']["payment_status"],"stripe_charge_id"?: string | null,"stripe_checkout_session_id"?: string | null,"stripe_payment_intent_id"?: string | null,"stripe_refund_id"?: string | null,"stripe_transfer_id"?: string | null,"transferred_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -333,14 +333,14 @@ isOneToOne: false
                   ]
                 },"tutor_profiles": {
                   Row: {
-                    "bio": string,"country": string | null,"created_at": string,"currency": string,"headline": string,"hourly_rate_cents": number,"lessons_taught": number,"rating_avg": number,"review_count": number,"status": Database["public"]['Enums']["tutor_status"],"stripe_account_id": string | null,"trial_rate_cents": number,"updated_at": string,"user_id": string,"video_url": string | null
+                    "bio": string,"country": string | null,"created_at": string,"currency": string,"headline": string,"hourly_rate_cents": number,"lessons_taught": number,"payouts_enabled": boolean,"rating_avg": number,"review_count": number,"status": Database["public"]['Enums']["tutor_status"],"stripe_account_id": string | null,"trial_rate_cents": number,"updated_at": string,"user_id": string,"video_url": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "bio"?: string,"country"?: string | null,"created_at"?: string,"currency"?: string,"headline"?: string,"hourly_rate_cents"?: number,"lessons_taught"?: number,"rating_avg"?: number,"review_count"?: number,"status"?: Database["public"]['Enums']["tutor_status"],"stripe_account_id"?: string | null,"trial_rate_cents"?: number,"updated_at"?: string,"user_id": string,"video_url"?: string | null
+                    "bio"?: string,"country"?: string | null,"created_at"?: string,"currency"?: string,"headline"?: string,"hourly_rate_cents"?: number,"lessons_taught"?: number,"payouts_enabled"?: boolean,"rating_avg"?: number,"review_count"?: number,"status"?: Database["public"]['Enums']["tutor_status"],"stripe_account_id"?: string | null,"trial_rate_cents"?: number,"updated_at"?: string,"user_id": string,"video_url"?: string | null
                   }
                   Update: {
-                    "bio"?: string,"country"?: string | null,"created_at"?: string,"currency"?: string,"headline"?: string,"hourly_rate_cents"?: number,"lessons_taught"?: number,"rating_avg"?: number,"review_count"?: number,"status"?: Database["public"]['Enums']["tutor_status"],"stripe_account_id"?: string | null,"trial_rate_cents"?: number,"updated_at"?: string,"user_id"?: string,"video_url"?: string | null
+                    "bio"?: string,"country"?: string | null,"created_at"?: string,"currency"?: string,"headline"?: string,"hourly_rate_cents"?: number,"lessons_taught"?: number,"payouts_enabled"?: boolean,"rating_avg"?: number,"review_count"?: number,"status"?: Database["public"]['Enums']["tutor_status"],"stripe_account_id"?: string | null,"trial_rate_cents"?: number,"updated_at"?: string,"user_id"?: string,"video_url"?: string | null
                   }
                   Relationships: [
                     {
@@ -369,6 +369,7 @@ isOneToOne: true
 "headline": string,
 "hourly_rate_cents": number,
 "lessons_taught": number,
+"payouts_enabled": boolean,
 "rating_avg": number,
 "review_count": number,
 "status": Database["public"]['Enums']["tutor_status"],
@@ -415,6 +416,12 @@ isOneToOne: true
 "change_cutoff":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"complete_past_lessons":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"confirm_booking_payment":
+{ Args: { "p_amount_cents": number,"p_booking_id": string,"p_charge_id": string,"p_checkout_session_id": string,"p_payment_intent_id": string }; Returns: string
+                           },
 "create_booking_hold":
 { Args: { "p_starts_at": string,"p_tutor_id": string,"p_type": Database["public"]['Enums']["booking_type"] }; Returns: {
               "cancellation_reason": string | null,
@@ -443,14 +450,33 @@ isOneToOne: true
         isOneToOne: true
         isSetofReturn: false
       } },
+"expire_booking_hold":
+{ Args: { "p_booking_id": string,"p_checkout_session_id": string }; Returns: undefined
+                           },
+"hold_minutes":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "is_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "lesson_minutes":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
+"payouts_due":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "amount_cents": number,"booking_id": string,"currency": string,"payment_id": string,"stripe_account_id": string,"stripe_charge_id": string
+            }[]
+                           },
 "platform_fee_cents":
 { Args: { "p_price": number,"p_type": Database["public"]['Enums']["booking_type"] }; Returns: number
+                           },
+"raise_booking_conflict":
+{ Args: { "p_constraint": string }; Returns: undefined
+                           },
+"refunds_due":
+{ Args: { "p_booking_id"?: string }; Returns: {
+              "amount_cents": number,"booking_id": string,"payment_id": string,"stripe_payment_intent_id": string
+            }[]
                            },
 "release_expired_holds":
 { Args: { "p_tutor_id": string }; Returns: undefined
@@ -490,7 +516,7 @@ isOneToOne: true
                            }
           }
           Enums: {
-            "booking_status": "pending_payment"|"confirmed"|"completed"|"cancelled"|"no_show","booking_type": "trial"|"regular","payment_status": "pending"|"succeeded"|"refunded"|"failed","tutor_status": "pending"|"approved"|"rejected","user_role": "student"|"tutor"|"admin"
+            "booking_status": "pending_payment"|"confirmed"|"completed"|"cancelled"|"no_show","booking_type": "trial"|"regular","payment_status": "pending"|"succeeded"|"refunded"|"failed"|"expired","tutor_status": "pending"|"approved"|"rejected","user_role": "student"|"tutor"|"admin"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -610,7 +636,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "booking_status": ["pending_payment", "confirmed", "completed", "cancelled", "no_show"],"booking_type": ["trial", "regular"],"payment_status": ["pending", "succeeded", "refunded", "failed"],"tutor_status": ["pending", "approved", "rejected"],"user_role": ["student", "tutor", "admin"]
+            "booking_status": ["pending_payment", "confirmed", "completed", "cancelled", "no_show"],"booking_type": ["trial", "regular"],"payment_status": ["pending", "succeeded", "refunded", "failed", "expired"],"tutor_status": ["pending", "approved", "rejected"],"user_role": ["student", "tutor", "admin"]
           }
         }
 } as const

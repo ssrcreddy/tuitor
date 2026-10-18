@@ -16,7 +16,7 @@ export default async function TutorDashboard() {
   const supabase = await createClient();
 
   const [{ data: tutor }, { data: bookings }, { count: ruleCount }] = await Promise.all([
-    supabase.from("tutor_profiles").select("status").eq("user_id", profile.id).maybeSingle(),
+    supabase.from("tutor_profiles").select("status, payouts_enabled").eq("user_id", profile.id).maybeSingle(),
     supabase
       .from("bookings")
       .select("id, starts_at, type, status, price_cents, platform_fee_cents, currency, student:profiles!bookings_student_id_fkey(full_name)")
@@ -57,6 +57,9 @@ export default async function TutorDashboard() {
           </Link>
           <Link href="/dashboard/tutor/availability" className="btn-secondary">
             Availability{ruleCount === 0 && " (not set)"}
+          </Link>
+          <Link href="/dashboard/tutor/payouts" className="btn-secondary">
+            Payouts{!tutor.payouts_enabled && " (not set up)"}
           </Link>
           {tutor.status === "approved" && (
             <Link href={`/tutors/${profile.id}`} className="btn-secondary">
